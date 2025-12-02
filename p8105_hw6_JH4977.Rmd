@@ -1,0 +1,89 @@
+---
+title: "p8105_hw6_JH4977"
+author: "jh4977"
+date: "2025-12-01"
+output: github_document
+---
+# Q1
+
+```{r}
+library(tidyverse)
+library(broom)
+library(purrr)
+library(forcats)
+library(ggplot2)
+
+homicide_raw <- read_csv("homicide-data.csv")
+
+homicide_df <- homicide_raw %>% 
+  mutate(
+    city_state = str_c(city, ", ", state),
+    solved = if_else(disposition == "Closed by arrest", 1, 0),
+    victim_age = as.numeric(victim_age),
+    victim_sex = factor(victim_sex, levels = c("Female", "Male"))
+  ) %>% 
+  filter(victim_race %in% c("White", "Black")) %>% 
+  filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", 
+                            "Kansas City, MO", "Tulsa, AL")) %>% 
+  filter(!is.na(victim_age))
+
+# for baltimore use glm
+baltimore <- homicide_df %>% 
+  filter(city_state == "Baltimore, MD")
+
+baltimore_fit <- glm(
+  solved ~ victim_age + victim_sex + victim_race,
+  data   = baltimore,
+  family = binomial()
+)
+
+# use broom to tidy the data and do CI and exp--OR
+baltimore_or <- baltimore_fit %>% 
+  tidy(conf.int = TRUE, exponentiate = TRUE) %>% 
+  filter(term == "victim_sexMale") %>% 
+  select(term, estimate, conf.low, conf.high)
+
+baltimore_or
+
+# for other cities
+# use nest to gather the data in each group and unest after running glm
+city_results <- homicide_df %>% 
+  group_by(city_state) %>% 
+  nest() %>% 
+  mutate(
+    fit = map(
+      data,
+      ~ glm(solved ~ victim_age + victim_sex + victim_race,
+            data = .x, family = binomial())
+    ),
+    tidied = map(fit, ~ tidy(.x, conf.int = TRUE, exponentiate = TRUE))
+  ) %>% 
+  unnest(tidied) %>% 
+  filter(term == "victim_sexMale") %>% 
+  select(city_state, estimate, conf.low, conf.high)
+
+city_results
+
+city_results %>% 
+  mutate(
+    city_state = fct_reorder(city_state, estimate, .desc = TRUE)
+  ) %>% 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high), width = 0) +
+  geom_hline(yintercept = 1, linetype = 2) +
+  coord_flip() +
+  labs(
+    x = "City, State",
+    y = "Adjusted OR of being solved (Male vs Female victims)",
+    title = "Estimated odds ratios and 95% CIs by city"
+  ) +
+  theme_minimal()
+
+```
+### Comment
+
+# Q2
+
+
+
