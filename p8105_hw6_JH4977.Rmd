@@ -19,8 +19,10 @@ homicide_df <- homicide_raw %>%
   mutate(
     city_state = str_c(city, ", ", state),
     solved = if_else(disposition == "Closed by arrest", 1, 0),
-    victim_age = as.numeric(victim_age),
-    victim_sex = factor(victim_sex, levels = c("Female", "Male"))
+    victim_sex = if_else(victim_sex == "Unknown", NA, victim_sex),
+    victim_sex = factor(victim_sex, levels = c("Female", "Male")),
+    victim_age = if_else(victim_age == "Unknown", NA, victim_age),
+    victim_age = as.numeric(victim_age)
   ) %>% 
   filter(victim_race %in% c("White", "Black")) %>% 
   filter(!city_state %in% c("Dallas, TX", "Phoenix, AZ", 
@@ -79,6 +81,7 @@ city_results %>%
   ) +
   theme_minimal()
 ```
+
 ## Comment
 The cities are ordered by the adjusted odds ratio (OR) of a homicide being solved for male victims relative to female victims. ORs below 1 indicate that cases with male victims are less likely to be solved than those with female victims, after adjusting for victim age and race, whereas ORs above 1 indicate the opposite.
 
